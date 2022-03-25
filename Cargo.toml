@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 tracing = "0.1.19"
+
+[dev-dependencies]
+proptest = "1.0.0"

@@ -69,10 +69,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-
-  use std::sync::Mutex;
-
   use super::*;
+  use proptest::prelude::*;
 
   #[test]
   #[should_panic(expected = "retries must be greater than 0")]
@@ -97,21 +95,23 @@ mod tests {
     assert_eq!(Ok(1), result);
   }
 
-  #[test]
-  fn exec_succeeds_on_second_try() {
-    let mut tries = 0;
+  proptest! {
+    #[test]
+    fn exec_succeeds_on_nth_retry(num_retries in 1..=1000_usize) {
+      let mut tries = 0;
 
-    let result = Retry::new().retries(3).exec(|| {
-      tries += 1;
+      let result = Retry::new().retries(num_retries).exec(|| {
+        tries += 1;
 
-      if tries > 1 {
-        Ok(1)
-      } else {
-        Err("oops")
-      }
-    });
+        if tries == num_retries {
+          Ok(1)
+        } else {
+          Err("oops")
+        }
+      });
 
-    assert_eq!(Ok(1), result);
-    assert_eq!(2, tries);
+      assert_eq!(Ok(1), result);
+      assert_eq!(num_retries, tries);
+    }
   }
 }
