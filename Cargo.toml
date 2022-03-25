@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 tracing = "0.1.19"
+async-trait = "0.1.52"
+tokio = { version = "1.17.0", features = ["time"] }
 
 [dev-dependencies]
 proptest = "1.0.0"
+tokio = { version = "1.17.0", features = ["macros", "rt-multi-thread"] }
