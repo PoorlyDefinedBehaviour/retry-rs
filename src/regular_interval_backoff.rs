@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-struct SequentialBackoff {
+struct RegularIntervalBackoff {
   wait_for: Duration,
 }
 
 #[async_trait]
-impl crate::retry::Backoff for SequentialBackoff {
+impl crate::retry::Backoff for RegularIntervalBackoff {
   async fn wait(&mut self, _retry: usize) {
     tokio::time::sleep(self.wait_for).await
   }
@@ -26,7 +26,7 @@ mod tests {
 
     let result: Result<i32, &str> = Retry::new()
       .retries(3)
-      .backoff(SequentialBackoff {
+      .backoff(RegularIntervalBackoff {
         wait_for: Duration::from_millis(50),
       })
       .exec(|| {
