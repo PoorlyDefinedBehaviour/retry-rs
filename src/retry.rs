@@ -1,38 +1,27 @@
 use async_trait::async_trait;
-use std::{cell::RefCell, fmt::Debug, time::Duration};
+use std::{cell::RefCell, fmt::Debug};
 
 use tracing::error;
 
-struct DummyBackoff;
+struct NoOpBackoff;
 
 #[async_trait]
-impl Backoff for DummyBackoff {
-  async fn wait(&mut self, retry: usize) {}
+impl Backoff for NoOpBackoff {
+  async fn wait(&mut self, _retry: usize) {}
 }
 
-struct SequentialBackoff {
-  wait_for: Duration,
-}
-
-#[async_trait]
-impl Backoff for SequentialBackoff {
-  async fn wait(&mut self, _retry: usize) {
-    tokio::time::sleep(self.wait_for).await
-  }
-}
-
-struct Retry {
+pub struct Retry {
   retries: usize,
   backoff: RefCell<Box<dyn Backoff>>,
 }
 
-enum RetryResult<T, E> {
+pub enum RetryResult<T, E> {
   Done(T),
   Error(E),
 }
 
 #[async_trait]
-trait Backoff {
+pub trait Backoff {
   async fn wait(&mut self, retry: usize);
 }
 
@@ -40,7 +29,7 @@ impl Retry {
   pub fn new() -> Self {
     Retry {
       retries: 1,
-      backoff: RefCell::new(Box::new(DummyBackoff)),
+      backoff: RefCell::new(Box::new(NoOpBackoff)),
     }
   }
 
@@ -97,18 +86,8 @@ impl Retry {
   }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-  // let x = Retry::new().retries(3).exec(|| 1)?;
-
-  // dbg!(x);
-
-  Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-  use std::time::Instant;
-
   use super::*;
   use proptest::prelude::*;
   use tokio::runtime::Runtime;
@@ -169,33 +148,5 @@ mod tests {
         assert_eq!(num_retries, tries);
       });
     }
-  }
-
-  #[tokio::test]
-  async fn sequential_backoff() {
-    let start = Instant::now();
-    let mut tries = 0;
-
-    let result: Result<i32, &str> = Retry::new()
-      .retries(3)
-      .backoff(SequentialBackoff {
-        wait_for: Duration::from_millis(50),
-      })
-      .exec(|| {
-        tries += 1;
-
-        if tries == 3 {
-          Ok(1)
-        } else {
-          Err("oops")
-        }
-      })
-      .await;
-
-    assert_eq!(Ok(1), result);
-
-    let elapsed = start.elapsed();
-
-    assert!(elapsed >= Duration::from_millis(90) && elapsed <= Duration::from_millis(110));
   }
 }
