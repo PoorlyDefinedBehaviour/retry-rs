@@ -27,8 +27,10 @@ mod tests {
 
   #[tokio::test]
   async fn smoke() {
+    // Given
     let tries = Rc::new(Cell::new(0));
 
+    // When
     let result: Result<i32, &str> = Retry::default()
       .retries(3)
       .backoff(FullJitterExponentialBackoff { start: 1, max: 12 })
@@ -43,6 +45,7 @@ mod tests {
       })
       .await;
 
+    // Then
     assert_eq!(Ok(1), result);
   }
 }

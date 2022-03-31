@@ -82,18 +82,25 @@ mod tests {
   #[test]
   #[should_panic(expected = "retries must be greater than 0")]
   fn retries_must_be_greater_than_0() {
+    // Given
+    // Then
     Retry::default().retries(0);
   }
 
   #[tokio::test]
   async fn retries_defaults_to_1() {
+    // Given
     let tries = Rc::new(Cell::new(0));
+
+    // When
     let result: Result<i32, &str> = Retry::default()
       .exec(|| async {
         tries.set(tries.get() + 1);
         Err("oops")
       })
       .await;
+
+    // Then
     assert_eq!(Err("oops"), result);
     assert_eq!(1, tries.get());
   }
@@ -102,7 +109,13 @@ mod tests {
     #[test]
     fn exec_succeeds_on_first_try(num_retries in 1..=1000_usize) {
       Runtime::new().unwrap().block_on(async {
-        let result: Result<i32, String> = Retry::default().retries(num_retries).exec(||async{ Ok(1)}).await;
+        //Given
+        let result: Result<i32, String> = Retry::default().retries(num_retries).exec(||async {
+          // When
+          Ok(1)
+        }).await;
+
+        // Then
         assert_eq!(Ok(1), result);
       });
     }
@@ -110,7 +123,15 @@ mod tests {
     #[test]
     fn error_is_returned_if_task_never_succeeds(num_retries in 1..=1000_usize) {
       Runtime::new().unwrap().block_on(async {
-        let result: Result<i32, &str> = Retry::default().retries(num_retries).exec(||async { Err("nope")}).await;
+        // Given
+
+        let result: Result<i32, &str> = Retry::default().retries(num_retries).exec(|| async {
+          // When
+          Err("nope")
+        })
+        .await;
+
+        // Then
         assert_eq!(Err("nope"), result);
       });
     }
@@ -118,12 +139,13 @@ mod tests {
     #[test]
     fn exec_succeeds_on_nth_retry(num_retries in 1..=1000_usize) {
       Runtime::new().unwrap().block_on(async {
+        // Given
         let tries = Rc::new(Cell::new(0));
-
 
         let result = Retry::default().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
+          // When
           if tries.get() == num_retries {
             Ok(1)
           } else {
@@ -131,6 +153,7 @@ mod tests {
           }
         }).await;
 
+        // Then
         assert_eq!(Ok(1), result);
         assert_eq!(num_retries, tries.get());
       });
