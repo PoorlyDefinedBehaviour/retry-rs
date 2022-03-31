@@ -17,22 +17,22 @@ impl crate::retry::Backoff for RegularIntervalBackoff {
 mod tests {
   use super::*;
   use crate::retry::Retry;
-  use std::time::Instant;
+  use std::{cell::Cell, rc::Rc, time::Instant};
 
   #[tokio::test]
   async fn smoke() {
     let start = Instant::now();
-    let mut tries = 0;
+    let tries = Rc::new(Cell::new(0));
 
-    let result: Result<i32, &str> = Retry::new()
+    let result: Result<i32, &str> = Retry::default()
       .retries(3)
       .backoff(RegularIntervalBackoff {
         wait_for: Duration::from_millis(50),
       })
-      .exec(|| {
-        tries += 1;
+      .exec(|| async {
+        tries.set(tries.get() + 1);
 
-        if tries == 3 {
+        if tries.get() == 3 {
           Ok(1)
         } else {
           Err("oops")
