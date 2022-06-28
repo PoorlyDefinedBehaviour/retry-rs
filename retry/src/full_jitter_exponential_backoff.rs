@@ -41,7 +41,7 @@ mod tests {
     let tries = Rc::new(Cell::new(0));
 
     // When
-    let result: Result<i32, &str> = Retry::default()
+    let result: Result<i32, &str> = Retry::new()
       .retries(3)
       .backoff(FullJitterExponentialBackoff::recommended())
       .exec(|| async {

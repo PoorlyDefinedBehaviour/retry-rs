@@ -35,7 +35,7 @@ impl Backoff for NoOpBackoff {
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::default().retries(3).exec(|| async {
+///let result = Retry::new().retries(3).exec(|| async {
 ///   let response_status = match post("https://example.com/1").await {
 ///     Err(err) => return RetryResult::Retry(err),
 ///     Ok(response_status) => response_status
@@ -63,7 +63,7 @@ impl Backoff for NoOpBackoff {
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::default().retries(3).exec(|| async {
+///let result = Retry::new().retries(3).exec(|| async {
 ///  let response: Result<i32, String> = get("https://example.com/1").await;
 ///  response
 ///})
@@ -82,12 +82,18 @@ pub trait Backoff {
   async fn wait(&mut self, retry: usize);
 }
 
-impl Default for Retry {
-  fn default() -> Self {
+impl Retry {
+  pub fn new() -> Self {
     Self {
       retries: 1,
       backoff: RefCell::new(Box::new(NoOpBackoff)),
     }
+  }
+}
+
+impl Default for Retry {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -165,7 +171,7 @@ mod tests {
   fn retries_must_be_greater_than_0() {
     // Given
     // Then
-    Retry::default().retries(0);
+    Retry::new().retries(0);
   }
 
   #[tokio::test]
@@ -174,7 +180,7 @@ mod tests {
     let tries = Rc::new(Cell::new(0));
 
     // When
-    let result: Result<i32, &str> = Retry::default()
+    let result: Result<i32, &str> = Retry::new()
       .exec(|| async {
         tries.set(tries.get() + 1);
         Err("oops")
@@ -193,7 +199,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::default().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -213,7 +219,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result = Retry::default().retries(num_retries).exec(|| async {
+        let result = Retry::new().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -236,7 +242,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::default().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -256,7 +262,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::default().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -277,7 +283,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result = Retry::default().retries(num_retries).exec(|| async {
+        let result = Retry::new().retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When

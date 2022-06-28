@@ -10,7 +10,7 @@ use async_trait::async_trait;
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::default()
+///let result = Retry::new()
 ///   .retries(5)
 ///   .backoff(ExponentialBackoff::recommended())
 ///   .exec(|| async {
@@ -55,7 +55,7 @@ mod tests {
     let tries = Rc::new(Cell::new(0));
 
     // When
-    let result: Result<i32, &str> = Retry::default()
+    let result: Result<i32, &str> = Retry::new()
       .retries(3)
       .backoff(ExponentialBackoff { start: 1, max: 12 })
       .exec(|| async {
