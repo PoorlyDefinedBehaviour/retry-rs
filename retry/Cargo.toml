@@ -1,0 +1,17 @@
+[package]
+name = "retry"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1.19"
+async-trait = "0.1.52"
+tokio = { version = "1.17.0", features = ["time"] }
+rand = "0.8.5"
+
+[dev-dependencies]
+proptest = "1.0.0"
+tokio = { version = "1.17.0", features = ["macros", "rt-multi-thread"] }
+tokio-test = "0.4.2"

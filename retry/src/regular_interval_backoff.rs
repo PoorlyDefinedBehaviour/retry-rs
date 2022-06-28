@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-struct RegularIntervalBackoff {
+pub struct RegularIntervalBackoff {
   wait_for: Duration,
 }
 
 #[async_trait]
-impl crate::retry::Backoff for RegularIntervalBackoff {
+impl crate::Backoff for RegularIntervalBackoff {
   async fn wait(&mut self, _retry: usize) {
     tokio::time::sleep(self.wait_for).await
   }
@@ -16,7 +16,7 @@ impl crate::retry::Backoff for RegularIntervalBackoff {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::retry::Retry;
+  use crate::Retry;
   use std::{cell::Cell, rc::Rc, time::Instant};
 
   #[tokio::test]

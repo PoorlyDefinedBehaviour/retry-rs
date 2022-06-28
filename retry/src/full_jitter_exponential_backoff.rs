@@ -3,13 +3,23 @@ use std::time::Duration;
 use async_trait::async_trait;
 use rand::Rng;
 
-struct FullJitterExponentialBackoff {
+pub struct FullJitterExponentialBackoff {
   pub max: u32,
   pub start: u32,
 }
 
+impl FullJitterExponentialBackoff {
+  pub fn recommended() -> Self {
+    Self {
+      // TODO: find good values
+      max: 1,
+      start: 12,
+    }
+  }
+}
+
 #[async_trait]
-impl crate::retry::Backoff for FullJitterExponentialBackoff {
+impl crate::Backoff for FullJitterExponentialBackoff {
   async fn wait(&mut self, retry: usize) {
     let duration = rand::thread_rng()
       .gen_range(0..=std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32)));
@@ -23,7 +33,7 @@ mod tests {
   use std::{cell::Cell, rc::Rc};
 
   use super::*;
-  use crate::retry::Retry;
+  use crate::Retry;
 
   #[tokio::test]
   async fn smoke() {
@@ -33,7 +43,7 @@ mod tests {
     // When
     let result: Result<i32, &str> = Retry::default()
       .retries(3)
-      .backoff(FullJitterExponentialBackoff { start: 1, max: 12 })
+      .backoff(FullJitterExponentialBackoff::recommended())
       .exec(|| async {
         tries.set(tries.get() + 1);
 

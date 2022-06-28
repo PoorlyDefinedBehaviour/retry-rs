@@ -1,14 +1,41 @@
+//! Wait for an expontially increasing amount of time between retries.
+
 use std::time::Duration;
 
 use async_trait::async_trait;
 
-struct ExponentialBackoff {
-  pub max: u32,
+/// ```
+/// # use retry::{Retry, ExponentialBackoff};
+/// # async fn get(_: &str) -> Result<i32, String> {
+/// #   Ok(1)
+/// # }
+/// # tokio_test::block_on(async {
+///let result = Retry::default()
+///   .retries(5)
+///   .backoff(ExponentialBackoff::recommended())
+///   .exec(|| async {
+///     let response: Result<i32, String> = get("https://example.com/1").await;
+///     response
+///   })
+///   .await;
+///
+///assert_eq!(Ok(1), result);
+/// # })
+/// ```
+pub struct ExponentialBackoff {
   pub start: u32,
+  pub max: u32,
+}
+
+impl ExponentialBackoff {
+  pub fn recommended() -> Self {
+    // TODO: find nice values
+    Self { start: 1, max: 12 }
+  }
 }
 
 #[async_trait]
-impl crate::retry::Backoff for ExponentialBackoff {
+impl crate::Backoff for ExponentialBackoff {
   async fn wait(&mut self, retry: usize) {
     let duration = std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32));
     tokio::time::sleep(Duration::from_secs(duration as u64)).await;
@@ -18,7 +45,7 @@ impl crate::retry::Backoff for ExponentialBackoff {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::retry::Retry;
+  use crate::Retry;
   use std::{cell::Cell, rc::Rc, time::Instant};
 
   #[tokio::test]

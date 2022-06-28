@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-struct IncrementalInterval {
+pub struct IncrementalInterval {
   pub wait_for: Duration,
   pub increment_by: Duration,
 }
 
 #[async_trait]
-impl crate::retry::Backoff for IncrementalInterval {
+impl crate::Backoff for IncrementalInterval {
   async fn wait(&mut self, _retry: usize) {
     tokio::time::sleep(self.wait_for).await;
     self.wait_for += self.increment_by;
@@ -18,7 +18,7 @@ impl crate::retry::Backoff for IncrementalInterval {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::retry::Retry;
+  use crate::Retry;
   use std::{cell::Cell, rc::Rc, time::Instant};
 
   #[tokio::test]
