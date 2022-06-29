@@ -10,3 +10,6 @@ retry = { path = "../retry" }
 
 [dev-dependencies]
 tokio = { version = "1.17.0", features = ["macros", "rt-multi-thread"] }
+proptest = "1.0.0"
+mockall = "0.11.1"
+async-trait = "0.1.52"
