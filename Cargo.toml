@@ -2,6 +2,7 @@
 
 members = [
   "resilience",
-  "retry"
+  "retry",
+  "circuit_breaker"
 ]
 
