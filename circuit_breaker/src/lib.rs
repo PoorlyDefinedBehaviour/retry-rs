@@ -6,7 +6,7 @@ use std::{
   },
 };
 
-use retry::Backoff;
+use retry::{Backoff, RetryResult};
 
 const CLOSED: i8 = 0;
 const OPEN: i8 = 1;
@@ -89,17 +89,9 @@ impl CircuitBreaker {
   }
 }
 
-pub enum ExecResult<T, E> {
-  Err(E),
-  Ok(T),
-}
-
-impl<T, E> From<Result<T, E>> for ExecResult<T, E> {
-  fn from(input: Result<T, E>) -> ExecResult<T, E> {
-    match input {
-      Err(err) => ExecResult::Err(err),
-      Ok(err) => ExecResult::Ok(err),
-    }
+impl Default for CircuitBreaker {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -108,12 +100,12 @@ impl CircuitBreaker {
   where
     F: FnMut() -> Fut,
     Fut: Future<Output = Out>,
-    Out: Into<ExecResult<T, E>>,
+    Out: Into<RetryResult<T, E>>,
   {
     let mut retry = 0;
     loop {
       match f().await.into() {
-        ExecResult::Err(err) => {
+        RetryResult::Retry(err) => {
           if retry == self.retries {
             return Err(err);
           }
@@ -122,7 +114,8 @@ impl CircuitBreaker {
             backoff.wait(retry).await;
           }
         }
-        ExecResult::Ok(value) => return Ok(value),
+        RetryResult::DontRetry(err) => return Err(err),
+        RetryResult::Ok(value) => return Ok(value),
       }
       retry += 1;
     }
@@ -212,7 +205,6 @@ mod tests {
     #[test]
     fn add_backoff_between_retries(num_retries in 0..1000_u16) {
       prop_assume!(num_retries > 0);
-
       Runtime::new().unwrap().block_on(async {
         let cb = CircuitBreaker::new();
 
@@ -252,6 +244,31 @@ mod tests {
         assert_eq!(Ok(1), result);
         assert_eq!(num_retries, tries.get());
         assert_eq!(num_retries, times_backoff_got_called.get());
+      });
+    }
+
+    #[test]
+    fn can_avoid_retrying_if_error_is_unrecoverable(num_retries in 0..1000_u16) {
+      prop_assume!(num_retries > 0);
+
+      Runtime::new().unwrap().block_on(async {
+        let cb = CircuitBreaker::new();
+
+        let tries = Rc::new(Cell::new(0_u16));
+
+        let result = cb
+          .with_retries(num_retries as u32)
+          .exec(|| async {
+            if tries.get() < num_retries {
+              tries.set(tries.get() + 1);
+            }
+
+            RetryResult::<i32, &'static str>::DontRetry("we cant recover from this")
+          })
+          .await;
+
+        assert_eq!(Err("we cant recover from this"), result);
+        assert_eq!(tries.get(), 1);
       });
     }
   }
