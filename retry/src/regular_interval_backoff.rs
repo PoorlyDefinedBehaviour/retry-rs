@@ -8,7 +8,7 @@ pub struct RegularIntervalBackoff {
 
 #[async_trait]
 impl crate::Backoff for RegularIntervalBackoff {
-  async fn wait(&mut self, _retry: usize) {
+  async fn wait(&self, _retry: u32) {
     tokio::time::sleep(self.wait_for).await
   }
 }

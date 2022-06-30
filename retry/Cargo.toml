@@ -10,6 +10,7 @@ tracing = "0.1.19"
 async-trait = "0.1.52"
 tokio = { version = "1.17.0", features = ["time"] }
 rand = "0.8.5"
+atomic = "0.5"
 
 [dev-dependencies]
 proptest = "1.0.0"

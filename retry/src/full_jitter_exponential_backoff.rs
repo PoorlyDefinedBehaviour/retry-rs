@@ -20,7 +20,7 @@ impl FullJitterExponentialBackoff {
 
 #[async_trait]
 impl crate::Backoff for FullJitterExponentialBackoff {
-  async fn wait(&mut self, retry: usize) {
+  async fn wait(&self, retry: u32) {
     let duration = rand::thread_rng()
       .gen_range(0..=std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32)));
 

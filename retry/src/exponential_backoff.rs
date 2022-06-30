@@ -36,7 +36,7 @@ impl ExponentialBackoff {
 
 #[async_trait]
 impl crate::Backoff for ExponentialBackoff {
-  async fn wait(&mut self, retry: usize) {
+  async fn wait(&self, retry: u32) {
     let duration = std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32));
     tokio::time::sleep(Duration::from_secs(duration as u64)).await;
   }

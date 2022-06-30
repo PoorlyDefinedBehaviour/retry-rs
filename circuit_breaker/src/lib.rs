@@ -1,5 +1,4 @@
 use std::{
-  cell::Cell,
   future::Future,
   sync::{
     atomic::{AtomicI8, Ordering},
@@ -51,10 +50,10 @@ impl CircuitBreaker {
   }
 
   /// Sets backoff strategy for the next call.
-  pub fn with_backoff(&self, backoff: Arc<dyn Backoff>) -> Self {
+  pub fn with_backoff(&self, backoff: impl Backoff + Send + Sync + 'static) -> Self {
     Self {
       inner: Arc::clone(&self.inner),
-      backoff: Some(backoff),
+      backoff: Some(Arc::new(backoff)),
       ..*self
     }
   }
@@ -115,8 +114,12 @@ impl CircuitBreaker {
     loop {
       match f().await.into() {
         ExecResult::Err(err) => {
-          if retry == self.retries - 1 {
+          if retry == self.retries {
             return Err(err);
+          }
+
+          if let Some(ref backoff) = self.backoff {
+            backoff.wait(retry).await;
           }
         }
         ExecResult::Ok(value) => return Ok(value),
@@ -128,7 +131,7 @@ impl CircuitBreaker {
 
 #[cfg(test)]
 mod tests {
-  use std::rc::Rc;
+  use std::{cell::Cell, rc::Rc};
 
   use super::*;
   use async_trait::async_trait;
@@ -140,7 +143,7 @@ mod tests {
       Backoff {}
       #[async_trait]
       impl retry::Backoff for Backoff {
-        async fn wait(&mut self, retry: usize);
+        async fn wait(&self, retry: u32);
       }
   }
 
@@ -207,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn add_backoff_between_retries(num_retries: u16) {
+    fn add_backoff_between_retries(num_retries in 0..1000_u16) {
       prop_assume!(num_retries > 0);
 
       Runtime::new().unwrap().block_on(async {
@@ -216,29 +219,39 @@ mod tests {
         let tries = Rc::new(Cell::new(0_u16));
         let times_backoff_got_called = Rc::new(Cell::new(0_u16));
 
-        let expect =        MockBackoff::new()
-        .expect_wait()
-        .times(num_retries as usize)
-        .withf_st(|retry_number| *retry_number == tries.get() as usize)
-        .returning_st(|_| times_backoff_got_called.set(times_backoff_got_called.get()+1));
+
+        let tries_clone = Rc::clone(&tries);
+        let times_backoff_got_called_clone = Rc::clone(&times_backoff_got_called);
+
+        let mut backoff = MockBackoff::new();
+
+        backoff
+          .expect_wait()
+          .times(num_retries as usize)
+          .withf_st(move |retry_number| *retry_number == tries_clone.get() as u32-1)
+          .returning_st(move |_| times_backoff_got_called_clone.set(times_backoff_got_called_clone.get()+1));
 
         let result = cb
           .with_retries(num_retries as u32)
-    //       .with_backoff(
-    //  todo!()
-    //       )
+          .with_backoff(backoff)
           .exec(|| async {
-            tries.set(tries.get() + 1);
-            if tries.get() == num_retries {
+            let result = if tries.get() == num_retries  {
               Ok(1)
             } else {
               Err(0)
+            };
+
+            if tries.get() < num_retries {
+              tries.set(tries.get() + 1);
             }
+
+            result
           })
           .await;
 
         assert_eq!(Ok(1), result);
         assert_eq!(num_retries, tries.get());
+        assert_eq!(num_retries, times_backoff_got_called.get());
       });
     }
   }

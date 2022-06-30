@@ -1,17 +1,32 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use atomic::{Atomic, Ordering};
 
 pub struct IncrementalInterval {
-  pub wait_for: Duration,
-  pub increment_by: Duration,
+  wait_for: Atomic<Duration>,
+  increment_by: Duration,
+}
+
+impl IncrementalInterval {
+  pub fn new(wait_for: Duration, increment_by: Duration) -> Self {
+    Self {
+      wait_for: Atomic::new(wait_for),
+      increment_by,
+    }
+  }
 }
 
 #[async_trait]
 impl crate::Backoff for IncrementalInterval {
-  async fn wait(&mut self, _retry: usize) {
-    tokio::time::sleep(self.wait_for).await;
-    self.wait_for += self.increment_by;
+  async fn wait(&self, _retry: u32) {
+    let wait_for = self.wait_for.load(Ordering::Acquire);
+
+    tokio::time::sleep(wait_for).await;
+
+    self
+      .wait_for
+      .store(wait_for + self.increment_by, Ordering::Release);
   }
 }
 
@@ -30,10 +45,10 @@ mod tests {
     // When
     let result: Result<i32, &str> = Retry::new()
       .retries(3)
-      .backoff(IncrementalInterval {
-        wait_for: Duration::from_secs(1),
-        increment_by: Duration::from_secs(1),
-      })
+      .backoff(IncrementalInterval::new(
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+      ))
       .exec(|| async {
         tries.set(tries.get() + 1);
 

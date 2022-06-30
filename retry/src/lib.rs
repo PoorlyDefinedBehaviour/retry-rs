@@ -19,7 +19,7 @@ struct NoOpBackoff;
 
 #[async_trait]
 impl Backoff for NoOpBackoff {
-  async fn wait(&mut self, _retry: usize) {}
+  async fn wait(&self, _retry: u32) {}
 }
 
 /// ## Decide if a retry should happen
@@ -73,13 +73,13 @@ impl Backoff for NoOpBackoff {
 /// # })
 ///```
 pub struct Retry {
-  retries: usize,
+  retries: u32,
   backoff: RefCell<Box<dyn Backoff>>,
 }
 
 #[async_trait]
 pub trait Backoff {
-  async fn wait(&mut self, retry: usize);
+  async fn wait(&self, retry: u32);
 }
 
 impl Retry {
@@ -113,7 +113,7 @@ impl<T, E> From<Result<T, E>> for RetryResult<T, E> {
 }
 
 impl Retry {
-  pub fn retries(&mut self, n: usize) -> &mut Self {
+  pub fn retries(&mut self, n: u32) -> &mut Self {
     assert!(n > 0, "retries must be greater than 0");
     self.retries = n;
     self
@@ -194,7 +194,7 @@ mod tests {
 
   proptest! {
     #[test]
-    fn function_that_returns_result_error_is_returned_if_task_never_succeeds(num_retries in 1..=1000_usize) {
+    fn function_that_returns_result_error_is_returned_if_task_never_succeeds(num_retries in 1..=1000_u32) {
       Runtime::new().unwrap().block_on(async {
         // Given
         let tries = Rc::new(Cell::new(0));
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn function_that_returns_result_exec_succeeds_on_nth_retry(num_retries in 1..=1000_usize) {
+    fn function_that_returns_result_exec_succeeds_on_nth_retry(num_retries in 1..=1000_u32) {
       Runtime::new().unwrap().block_on(async {
         // Given
         let tries = Rc::new(Cell::new(0));
@@ -237,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn function_that_returns_retry_result_error_is_returned_if_task_never_succeeds(num_retries in 1..=1000_usize) {
+    fn function_that_returns_retry_result_error_is_returned_if_task_never_succeeds(num_retries in 1..=1000_u32) {
       Runtime::new().unwrap().block_on(async {
         // Given
         let tries = Rc::new(Cell::new(0));
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn function_that_returns_retry_result_error_is_returned_if_task_cannot_recover(num_retries in 1..=1000_usize) {
+    fn function_that_returns_retry_result_error_is_returned_if_task_cannot_recover(num_retries in 1..=1000_u32) {
       Runtime::new().unwrap().block_on(async {
         // Given
         let tries = Rc::new(Cell::new(0));
@@ -278,7 +278,7 @@ mod tests {
 
 
     #[test]
-    fn function_that_returns_retry_result_exec_succeeds_on_nth_retry(num_retries in 1..=1000_usize) {
+    fn function_that_returns_retry_result_exec_succeeds_on_nth_retry(num_retries in 1..=1000_u32) {
       Runtime::new().unwrap().block_on(async {
         // Given
         let tries = Rc::new(Cell::new(0));
