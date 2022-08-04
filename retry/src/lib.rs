@@ -11,7 +11,7 @@ pub use incremental_backoff::IncrementalInterval;
 pub use regular_interval_backoff::RegularIntervalBackoff;
 
 use async_trait::async_trait;
-use std::{fmt::Debug, future::Future, sync::Arc};
+use std::{fmt::Debug, future::Future};
 
 use tracing::warn;
 
@@ -24,11 +24,12 @@ use tracing::warn;
 ///
 ///```
 /// # use retry::{Retry, RetryResult};
+/// # use retry::exponential_backoff::ExponentialBackoff;
 /// # async fn post(_: &str) -> Result<i32, String> {
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::new().retries(3).exec(|| async {
+///let result = Retry::new().backoff(ExponentialBackoff::recommended()).retries(3).exec(|| async {
 ///   let response_status = match post("https://example.com/1").await {
 ///     Err(err) => return RetryResult::Retry(err),
 ///     Ok(response_status) => response_status
@@ -52,11 +53,12 @@ use tracing::warn;
 ///
 ///```
 /// # use retry::Retry;
+/// # use retry::exponential_backoff::ExponentialBackoff;
 /// # async fn get(_: &str) -> Result<i32, String> {
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::new().retries(3).exec(|| async {
+///let result = Retry::new().backoff(ExponentialBackoff::recommended()).retries(3).exec(|| async {
 ///  let response: Result<i32, String> = get("https://example.com/1").await;
 ///  response
 ///})
@@ -65,9 +67,16 @@ use tracing::warn;
 ///assert_eq!(Ok(1), result);
 /// # })
 ///```
-pub struct Retry {
+pub struct Retry<B: Backoff = NoOpBackoff> {
   retries: u32,
-  backoff: Option<Arc<dyn Backoff>>,
+  backoff: Option<B>,
+}
+
+pub struct NoOpBackoff;
+
+#[async_trait]
+impl Backoff for NoOpBackoff {
+  async fn wait(&self, _retry: u32) {}
 }
 
 #[async_trait]
@@ -75,7 +84,7 @@ pub trait Backoff {
   async fn wait(&self, retry: u32);
 }
 
-impl Retry {
+impl<B: Backoff> Retry<B> {
   pub fn new() -> Self {
     Self {
       retries: 1,
@@ -105,18 +114,15 @@ impl<T, E> From<Result<T, E>> for RetryResult<T, E> {
   }
 }
 
-impl Retry {
+impl<B: Backoff> Retry<B> {
   pub fn retries(&mut self, n: u32) -> &mut Self {
     assert!(n > 0, "retries must be greater than 0");
     self.retries = n;
     self
   }
 
-  pub fn backoff<B>(&mut self, b: B) -> &mut Self
-  where
-    B: 'static + Backoff,
-  {
-    self.backoff = Some(Arc::new(b));
+  pub fn backoff(&mut self, b: B) -> &mut Self {
+    self.backoff = Some(b);
     self
   }
 
@@ -165,7 +171,9 @@ mod tests {
   fn retries_must_be_greater_than_0() {
     // Given
     // Then
-    Retry::new().retries(0);
+    Retry::new()
+      .backoff(ExponentialBackoff::recommended())
+      .retries(0);
   }
 
   #[tokio::test]
@@ -175,6 +183,7 @@ mod tests {
 
     // When
     let result: Result<i32, &str> = Retry::new()
+      .backoff(ExponentialBackoff::recommended())
       .exec(|| async {
         tries.set(tries.get() + 1);
         Err("oops")
@@ -193,7 +202,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().backoff(NoOpBackoff).retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -213,7 +222,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result = Retry::new().retries(num_retries).exec(|| async {
+        let result = Retry::new().backoff(NoOpBackoff).retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -236,7 +245,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().backoff(NoOpBackoff).retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -256,7 +265,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result: Result<i32, &str> = Retry::new().retries(num_retries).exec(|| async {
+        let result: Result<i32, &str> = Retry::new().backoff(NoOpBackoff).retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
@@ -277,7 +286,7 @@ mod tests {
         // Given
         let tries = Rc::new(Cell::new(0));
 
-        let result = Retry::new().retries(num_retries).exec(|| async {
+        let result = Retry::new().backoff(NoOpBackoff).retries(num_retries).exec(|| async {
           tries.set(tries.get()+1);
 
           // When
