@@ -141,7 +141,6 @@ impl Retry {
             return Err(err);
           }
 
-          // Borrowing here is a problem because the future that's using the retry must be awaited.
           if let Some(ref backoff) = self.backoff {
             backoff.wait(tries).await;
           }
