@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use tracing::info;
 
 /// ```
 /// # use retry::{Retry, ExponentialBackoff};
@@ -36,8 +37,10 @@ impl ExponentialBackoff {
 
 #[async_trait]
 impl crate::Backoff for ExponentialBackoff {
+  #[tracing::instrument(skip_all, fields(retry = %retry))]
   async fn wait(&self, retry: u32) {
     let duration = std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32));
+    info!("backing off. seconds={}", duration);
     tokio::time::sleep(Duration::from_secs(duration as u64)).await;
   }
 }

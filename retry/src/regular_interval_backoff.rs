@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use tracing::info;
 
 pub struct RegularIntervalBackoff {
   wait_for: Duration,
@@ -8,7 +9,9 @@ pub struct RegularIntervalBackoff {
 
 #[async_trait]
 impl crate::Backoff for RegularIntervalBackoff {
+  #[tracing::instrument(skip_all, fields(retry = %_retry))]
   async fn wait(&self, _retry: u32) {
+    info!("backing off. duration={:?}", &self.wait_for);
     tokio::time::sleep(self.wait_for).await
   }
 }

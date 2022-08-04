@@ -106,6 +106,7 @@ dependencies = [
  "proptest",
  "retry",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

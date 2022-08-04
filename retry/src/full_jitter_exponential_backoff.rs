@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use rand::Rng;
+use tracing::info;
 
 pub struct FullJitterExponentialBackoff {
   pub max: u32,
@@ -20,10 +21,11 @@ impl FullJitterExponentialBackoff {
 
 #[async_trait]
 impl crate::Backoff for FullJitterExponentialBackoff {
+  #[tracing::instrument(skip_all, fields(retry = %retry))]
   async fn wait(&self, retry: u32) {
     let duration = rand::thread_rng()
       .gen_range(0..=std::cmp::min(self.max, self.start * 2_u32.pow(retry as u32)));
-
+    info!("backing off. seconds={}", duration);
     tokio::time::sleep(Duration::from_secs(duration as u64)).await;
   }
 }

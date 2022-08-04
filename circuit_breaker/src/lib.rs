@@ -27,6 +27,7 @@ pub struct CircuitBreaker {
 }
 
 impl CircuitBreaker {
+  #[tracing::instrument(skip_all)]
   pub fn new() -> Self {
     Self {
       inner: Arc::new(CircuitBreakerInner {
@@ -59,31 +60,37 @@ impl CircuitBreaker {
   }
 
   /// Returns true when the circuit is open.
+  #[tracing::instrument(skip_all)]
   pub fn is_open(&self) -> bool {
     self.inner.state.load(Ordering::Relaxed) == OPEN
   }
 
-  // Returns true when the circuit is half open.
+  /// Returns true when the circuit is half open.
+  #[tracing::instrument(skip_all)]
   pub fn is_half_open(&self) -> bool {
     self.inner.state.load(Ordering::Relaxed) == HALF_OPEN
   }
 
   /// Returns true when the circuit is closed.
+  #[tracing::instrument(skip_all)]
   pub fn is_closed(&self) -> bool {
     self.inner.state.load(Ordering::Relaxed) == CLOSED
   }
 
   /// Opens the circuit.
+  #[tracing::instrument(skip_all)]
   pub fn open(&self) {
     self.inner.state.store(OPEN, Ordering::Release);
   }
 
   /// Transitions the circuit to half open.
+  #[tracing::instrument(skip_all)]
   pub fn half_open(&self) {
     self.inner.state.store(HALF_OPEN, Ordering::Release);
   }
 
   /// Closes the circuit.
+  #[tracing::instrument(skip_all)]
   pub fn close(&self) {
     self.inner.state.store(CLOSED, Ordering::Release);
   }
@@ -96,6 +103,7 @@ impl Default for CircuitBreaker {
 }
 
 impl CircuitBreaker {
+  #[tracing::instrument(skip_all)]
   pub async fn exec<F, T, E, Fut, Out>(&self, mut f: F) -> Result<T, E>
   where
     F: FnMut() -> Fut,

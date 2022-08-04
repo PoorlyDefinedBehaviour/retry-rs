@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use atomic::{Atomic, Ordering};
+use tracing::info;
 
 pub struct IncrementalInterval {
   wait_for: Atomic<Duration>,
@@ -19,9 +20,10 @@ impl IncrementalInterval {
 
 #[async_trait]
 impl crate::Backoff for IncrementalInterval {
+  #[tracing::instrument(skip_all, fields(retry = %_retry))]
   async fn wait(&self, _retry: u32) {
     let wait_for = self.wait_for.load(Ordering::Acquire);
-
+    info!("backing off. duration={:?}", &wait_for);
     tokio::time::sleep(wait_for).await;
 
     self
