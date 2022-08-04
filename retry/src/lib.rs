@@ -11,16 +11,9 @@ pub use incremental_backoff::IncrementalInterval;
 pub use regular_interval_backoff::RegularIntervalBackoff;
 
 use async_trait::async_trait;
-use std::{cell::RefCell, fmt::Debug, future::Future};
+use std::{fmt::Debug, future::Future, sync::Arc};
 
 use tracing::warn;
-
-struct NoOpBackoff;
-
-#[async_trait]
-impl Backoff for NoOpBackoff {
-  async fn wait(&self, _retry: u32) {}
-}
 
 /// ## Decide if a retry should happen
 ///
@@ -74,7 +67,7 @@ impl Backoff for NoOpBackoff {
 ///```
 pub struct Retry {
   retries: u32,
-  backoff: RefCell<Box<dyn Backoff>>,
+  backoff: Option<Arc<dyn Backoff>>,
 }
 
 #[async_trait]
@@ -86,7 +79,7 @@ impl Retry {
   pub fn new() -> Self {
     Self {
       retries: 1,
-      backoff: RefCell::new(Box::new(NoOpBackoff)),
+      backoff: None,
     }
   }
 }
@@ -123,7 +116,7 @@ impl Retry {
   where
     B: 'static + Backoff,
   {
-    self.backoff = RefCell::new(Box::new(b));
+    self.backoff = Some(Arc::new(b));
     self
   }
 
@@ -149,7 +142,9 @@ impl Retry {
           }
 
           // Borrowing here is a problem because the future that's using the retry must be awaited.
-          self.backoff.borrow_mut().wait(tries).await;
+          if let Some(ref backoff) = self.backoff {
+            backoff.wait(tries).await;
+          }
         }
         RetryResult::DontRetry(err) => return Err(err),
         RetryResult::Ok(value) => return Ok(value),
