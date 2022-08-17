@@ -1,8 +1,7 @@
 [workspace]
 
 members = [
-  "resilience",
   "retry",
-  "circuit_breaker"
+  "circuit_breaker",
+  "resilience",
 ]
-

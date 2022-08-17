@@ -440,6 +440,10 @@ dependencies = [
 [[package]]
 name = "resilience"
 version = "0.1.0"
+dependencies = [
+ "circuit_breaker",
+ "retry",
+]
 
 [[package]]
 name = "retry"
