@@ -1,16 +1,65 @@
 use std::{
+  fmt::Display,
   future::Future,
   sync::{
     atomic::{AtomicI8, Ordering},
     Arc,
   },
 };
-
+mod clock;
+pub mod strategy;
+use async_trait::async_trait;
 use retry::{Backoff, RetryResult};
+use strategy::sequential::ConsecutiveFailures;
 
 const CLOSED: i8 = 0;
 const OPEN: i8 = 1;
 const HALF_OPEN: i8 = 2;
+
+/// Contains information about the circuit breaker state.
+#[derive(Debug)]
+pub struct Context {
+  /// Circuit breaker identifier. Can be anything.
+  pub id: String,
+}
+
+/// Decides when the circuit breaker should transition to another state.
+#[async_trait]
+pub trait CircuitBreakerStrategy: Send + Sync {
+  /// Called when the circuit transitions to the open state.
+  async fn on_open(&self) {
+    /* no-op */
+  }
+
+  /// Called when the circuit transitions to the half open state.
+  async fn on_half_open(&self) {
+    /* no-op */
+  }
+
+  /// Called when the circuit transitions to the closed state.
+  async fn on_close(&self) {
+    /* no-op */
+  }
+
+  /// Called when an execution succeeds.
+  async fn success(&self, _attempt: u16) {
+    /* no-op */
+  }
+
+  /// Called when an error happens.
+  async fn on_error(&self, _attempt: u16, _err: &(dyn Display + Send + Sync)) {
+    /* no-op */
+  }
+
+  /// The circuit closes if true is returned.
+  async fn should_close(&self) -> bool;
+
+  /// The circuit opens if true is returned.
+  async fn should_open(&self) -> bool;
+
+  /// The circuit half opens if true is returned.
+  async fn should_half_open(&self) -> bool;
+}
 
 struct CircuitBreakerInner {
   /// Is the circuit breaker closed, open or half open?
@@ -24,6 +73,8 @@ pub struct CircuitBreaker {
   retries: u32,
   /// The backoff strategy.
   backoff: Option<Arc<dyn Backoff>>,
+  /// The strategy used to decide when the circuit should transition to another state.
+  strategy: Arc<dyn CircuitBreakerStrategy>,
 }
 
 impl CircuitBreaker {
@@ -37,6 +88,7 @@ impl CircuitBreaker {
       /// Will try to execute the closure passed to exec only once by default.
       retries: 1,
       backoff: None,
+      strategy: Arc::new(ConsecutiveFailures::new()),
     }
   }
 
@@ -47,6 +99,7 @@ impl CircuitBreaker {
       inner: Arc::clone(&self.inner),
       retries: n,
       backoff: self.backoff.clone(),
+      strategy: self.strategy.clone(),
     }
   }
 
@@ -55,6 +108,7 @@ impl CircuitBreaker {
     Self {
       inner: Arc::clone(&self.inner),
       backoff: Some(Arc::new(backoff)),
+      strategy: Arc::clone(&self.strategy),
       ..*self
     }
   }

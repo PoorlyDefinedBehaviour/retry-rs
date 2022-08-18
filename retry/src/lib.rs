@@ -11,7 +11,7 @@ pub use incremental_backoff::IncrementalInterval;
 pub use regular_interval_backoff::RegularIntervalBackoff;
 
 use async_trait::async_trait;
-use std::{fmt::Debug, future::Future};
+use std::{fmt::Debug, future::Future, sync::Arc};
 
 use tracing::warn;
 
@@ -53,12 +53,11 @@ use tracing::warn;
 ///
 ///```
 /// # use retry::Retry;
-/// # use retry::exponential_backoff::ExponentialBackoff;
 /// # async fn get(_: &str) -> Result<i32, String> {
 /// #   Ok(1)
 /// # }
 /// # tokio_test::block_on(async {
-///let result = Retry::new().backoff(ExponentialBackoff::recommended()).retries(3).exec(|| async {
+///let result = Retry::new().retries(3).exec(|| async {
 ///  let response: Result<i32, String> = get("https://example.com/1").await;
 ///  response
 ///})
@@ -67,9 +66,9 @@ use tracing::warn;
 ///assert_eq!(Ok(1), result);
 /// # })
 ///```
-pub struct Retry<B: Backoff = NoOpBackoff> {
+pub struct Retry {
   retries: u32,
-  backoff: Option<B>,
+  backoff: Option<Arc<dyn Backoff>>,
 }
 
 pub struct NoOpBackoff;
@@ -84,7 +83,7 @@ pub trait Backoff {
   async fn wait(&self, retry: u32);
 }
 
-impl<B: Backoff> Retry<B> {
+impl Retry {
   pub fn new() -> Self {
     Self {
       retries: 1,
@@ -114,15 +113,15 @@ impl<T, E> From<Result<T, E>> for RetryResult<T, E> {
   }
 }
 
-impl<B: Backoff> Retry<B> {
+impl Retry {
   pub fn retries(&mut self, n: u32) -> &mut Self {
     assert!(n > 0, "retries must be greater than 0");
     self.retries = n;
     self
   }
 
-  pub fn backoff(&mut self, b: B) -> &mut Self {
-    self.backoff = Some(b);
+  pub fn backoff(&mut self, b: impl Backoff + 'static) -> &mut Self {
+    self.backoff = Some(Arc::new(b));
     self
   }
 
